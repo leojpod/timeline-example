@@ -1,4 +1,4 @@
-import "./style.css";
-import { Elm } from "./elm/Main.elm";
+import './__built.css'
+import { Elm } from './elm/Main.elm'
 
-Elm.Main.init({ flags: {} });
+Elm.Main.init({ flags: { millisecNow: new Date().getTime() } })
