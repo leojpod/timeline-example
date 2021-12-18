@@ -19,6 +19,7 @@ import Html exposing (input)
 import Html.Attributes exposing (type_)
 import Html.Attributes exposing (checked)
 import Html.Events exposing (onCheck)
+import Html.Events exposing (onClick)
 
 
 main : Program Flags Model Msg
@@ -37,12 +38,15 @@ type Genre
     | Concert
 
 
+type EventId = EventId Int
+
 type alias Event =
     { start : Posix
     , end : Posix
     , title : String
     , genre : Genre
     , track : Int
+    , id : EventId
     }
 
 
@@ -54,6 +58,7 @@ type alias Model =
     width: Float}
     , granularity : Int
     , program : List Event
+    , selectedEvent: Maybe EventId
     }
 
 
@@ -71,24 +76,28 @@ fakeProgram zone now =
       , title = "Impossible state impossible"
       , genre = Talk
       , track = 1
+      , id = EventId 1
       }
     , { start = Time.partsToPosix zone { today | hour = 8, minute = 15 }
       , end = Time.partsToPosix zone { today | hour = 12, minute = 30 }
       , title = "Diablo Swing Orchestra"
       , genre = Concert
       , track = 3
+      , id = EventId 2
       }
     , { start = Time.partsToPosix zone { today | hour = 9 }
       , end = Time.partsToPosix zone { today | hour = 11, minute = 45 }
       , title = "Titanic, a react story"
       , genre = Movie
       , track = 2
+      , id = EventId 3
       }
     , { start = Time.partsToPosix zone { today | hour = 14, minute = 33 }
       , end = Time.partsToPosix zone { today | hour = 18, minute = 55 }
       , title = "F# was not that sharp..."
       , genre = Movie
       , track = 1
+      , id = EventId 4
       }
     ]
 
@@ -107,6 +116,7 @@ init { millisecNow } =
       , timelineSpecs = {xPosition = 0 , width  = 0}
       , granularity = 1
       , program = []
+      , selectedEvent = Nothing
       }
     , Cmd.batch
         [ Time.here |> Task.perform UpdateTimeZone
@@ -123,6 +133,7 @@ type Msg
     | RefreshTimelineSpecs 
     | UpdateTimelineSpecs {xPosition : Float, width: Float} 
     | UpdateGranularity Int
+    | SelectEvent EventId
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -177,6 +188,8 @@ update msg model =
         UpdateGranularity granularity ->
             ( { model | granularity = granularity }, Cmd.none )
 
+        SelectEvent eventId ->
+            ( { model | selectedEvent = Just eventId }, Cmd.none )
 
 seconds : number -> number
 seconds sec =
@@ -321,12 +334,15 @@ fromPosixToGridColumn zone time =
            )
 
 
-showEvent : Zone -> Event -> Html Msg
-showEvent zone { start, end, title, genre, track } =
+showEvent : Zone -> Maybe EventId-> Event -> Html Msg
+showEvent zone selectedEvent { id, start, end, title, genre, track } =
     div
         [ class "flex flex-col justify-start border-2 shadow-xl bg-gray-50 rounded-md"
         , style "grid-column" <| fromPosixToGridColumn zone start ++ " / " ++ ( fromPosixToGridColumn zone end)
         , style "grid-row" <| "track-" ++ String.fromInt track
+        , attributeIf  (selectedEvent == Just id) <| 
+          class "bg-amber-300 border-amber-800"
+        , onClick <| SelectEvent id
         ]
         [ h1 [] [ text title ]
         , div [ class "self-end" ]
@@ -336,7 +352,7 @@ showEvent zone { start, end, title, genre, track } =
 
 
 timeline : Model -> Html Msg
-timeline { zone, program } =
+timeline { zone, selectedEvent, program } =
     let
         -- hours
         hours : List Int
@@ -435,6 +451,6 @@ timeline { zone, program } =
             []
             :: timeIndicators True
             ++ timeMarkers
-            ++ List.map (showEvent zone) program
+            ++ List.map (showEvent zone selectedEvent) program
             ++ timeIndicators False
         )
